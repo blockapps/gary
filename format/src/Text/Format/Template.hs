@@ -16,7 +16,7 @@ deriveFormat typName = do
   (TyConI d) <- reify typName -- Get all the information on the type
   (type_name,_,_,constructors) <- typeInfo (return d) -- extract name and constructors
   
-  let getFields c = map show $ catMaybes $ (map fst . snd) c
+  let getFields c = map show $ mapMaybe fst (snd c)
       getName (Name (OccName theName) _) = theName
       theFunction' = funD (mkName "format") $ map (\c -> theClause (getName $ fst c) $ getFields c) constructors 
       

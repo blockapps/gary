@@ -25,6 +25,8 @@ import Text.Colors
 import qualified System.Environment as Environment
 import System.IO
 import System.Process
+import Text.Tools
+import Text.Wrap
 
 type FullMessage = Message (V.Vector Content)
 
@@ -116,7 +118,7 @@ main = do
 
 printMessage :: Message Text -> String
 printMessage Assistant{assistant_content=Nothing} = "" -- show theMessage
-printMessage Assistant{assistant_content=Just v} = "ASSISTANT: " ++ green (Text.unpack v)
+printMessage Assistant{assistant_content=Just v} = box $ lines $ "ASSISTANT:\n" ++ Text.unpack (wrapText defaultWrapSettings 100 v)
 printMessage v = error $ "unsupported case in call to printMessage: " ++ show v
 
 fillMessage :: Message Text -> FullMessage

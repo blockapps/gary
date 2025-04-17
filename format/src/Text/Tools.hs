@@ -28,7 +28,7 @@ boxWithProperty :: (String -> String) -> [String] -> String
 boxWithProperty property strings =
   unlines $
     [property ("╔" ++ replicate (width - 2) '═' ++ "╗")]
-      ++ map (\s -> property "║ " ++ C.white s ++ replicate (width - printedLength s - 4) ' ' ++ property " ║") strings
+      ++ map (\s -> property "║ " ++ C.black s ++ replicate (width - printedLength s - 4) ' ' ++ property " ║") strings
       ++ [property ("╚" ++ replicate (width - 2) '═' ++ "╝")]
   where
     width = maximum (map printedLength strings) + 4

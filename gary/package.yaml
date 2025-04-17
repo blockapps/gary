@@ -33,3 +33,4 @@ executables:
     - text
     - unordered-containers
     - vector
+    - word-wrap

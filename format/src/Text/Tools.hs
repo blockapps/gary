@@ -15,6 +15,7 @@ module Text.Tools
 where
 
 import Control.Monad
+import Data.Char
 import qualified Data.Text as T
 import Text.Colors as C
 
@@ -40,6 +41,7 @@ printedLength = go False
     go True ('m' : t) = go False t
     go True (_ : t) = go True t
     go False ('\ESC' : t) = go True t
+    go False (c : t) | generalCategory c == OtherSymbol= 2 + go False t
     go False (_ : t) = 1 + go False t
     go _ [] = 0
 

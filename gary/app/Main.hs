@@ -118,7 +118,7 @@ main = do
 
 printMessage :: Message Text -> String
 printMessage Assistant{assistant_content=Nothing} = "" -- show theMessage
-printMessage Assistant{assistant_content=Just v} = box $ lines $ "ASSISTANT:\n" ++ Text.unpack (wrapText defaultWrapSettings 100 v)
+printMessage Assistant{assistant_content=Just v} = box $ lines $ "😎 GARY:\n" ++ Text.unpack (wrapText defaultWrapSettings 100 v)
 printMessage v = error $ "unsupported case in call to printMessage: " ++ show v
 
 fillMessage :: Message Text -> FullMessage

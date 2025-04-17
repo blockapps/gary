@@ -25,6 +25,7 @@ executables:
     dependencies:
     - aeson
     - bytestring
+    - format
     - http-client-tls
     - openai
     - process

@@ -21,7 +21,9 @@ import qualified Data.Text as Text
 import Data.Text.Encoding
 import qualified Data.Text.IO as Text.IO
 import qualified Data.Vector as V
+import Text.Colors
 import qualified System.Environment as Environment
+import System.IO
 import System.Process
 
 type FullMessage = Message (V.Vector Content)
@@ -86,6 +88,7 @@ main = do
       case outstandingCalls of
         [] -> do
           putStr "> "
+          hFlush stdout
           text <- Text.IO.getLine
           return [User{ content = [ Text{ text } ], name = Nothing }]
         _ -> do
@@ -113,7 +116,7 @@ main = do
 
 printMessage :: Message Text -> String
 printMessage Assistant{assistant_content=Nothing} = "" -- show theMessage
-printMessage Assistant{assistant_content=Just v} = "ASSISTANT: " ++ Text.unpack v
+printMessage Assistant{assistant_content=Just v} = "ASSISTANT: " ++ green (Text.unpack v)
 printMessage v = error $ "unsupported case in call to printMessage: " ++ show v
 
 fillMessage :: Message Text -> FullMessage

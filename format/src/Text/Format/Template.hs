@@ -33,20 +33,20 @@ concatWithPossibleTab :: [String] -> String
 concatWithPossibleTab = foldl1 combineWithPossibleTab
 
 theClause :: Quote m => String -> [String] -> m Clause
-theClause theName fields = clause [(conP (mkName theName) (map (varP . mkName . (++ "'")) fields))] (normalB $ f theName fields ) []
+theClause theName fields = clause [conP (mkName theName) (map (varP . mkName . (++ "'")) fields)] (normalB $ f theName fields ) []
 
 f :: Quote m => String -> [String] -> m Exp
 f theName fields =
-  appE (varE $ mkName "unlines") $ listE $ litE (StringL theName):(map (\x -> appE (varE $ mkName "concatWithPossibleTab") $ listE $ [litE $ StringL "  ", litE $ StringL x, litE $ StringL ": ", appE (varE $ mkName "format") $ varE $ mkName $ (++ "'") x]) fields)
+  appE (varE $ mkName "unlines") $ listE $ litE (StringL theName):map (\x -> appE (varE $ mkName "concatWithPossibleTab") $ listE [litE $ StringL "  ", litE $ StringL x, litE $ StringL ": ", appE (varE $ mkName "format") $ varE $ mkName $ (++ "'") x]) fields
 
 typeInfo :: DecQ -> Q (Name, [Name], [(Name, Int)], [(Name, [(Maybe Name, Type)])])
 typeInfo m =
   do d <- m
      case d of
-       d@(DataD _ _ _ _ _ _) ->
-         return $ (simpleName $ name d, paramsA d, consA d, termsA d)
-       d@(NewtypeD _ _ _ _ _ _) ->
-         return $ (simpleName $ name d, paramsA d, consA d, termsA d)
+       d@DataD{} ->
+         return (simpleName $ name d, paramsA d, consA d, termsA d)
+       d@NewtypeD{} ->
+         return (simpleName $ name d, paramsA d, consA d, termsA d)
        _ -> error ("derive: not a data type declaration: " ++ show d)
 
      where

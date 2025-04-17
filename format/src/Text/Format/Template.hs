@@ -86,6 +86,6 @@ simpleName nm =
   let s = nameBase nm
   in case dropWhile (/=':') s of
        []          -> mkName s
-       _:[]        -> mkName s
+       [ _ ]        -> mkName s
        _:t         -> mkName t
 

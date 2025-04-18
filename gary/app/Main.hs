@@ -1,33 +1,33 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE NamedFieldPuns        #-}
-{-# LANGUAGE OverloadedStrings     #-}
 {-# LANGUAGE OverloadedLists       #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 
 module Main (main) where
-import Control.Concurrent (threadDelay)
+import           Control.Concurrent         (threadDelay)
 
-import Control.Monad
-import qualified Data.Aeson as JSON
-import Data.Aeson ((.=))
-import qualified Data.Aeson.KeyMap as JSON
-import qualified Data.ByteString.Lazy as BL
-import OpenAI.V1
-import OpenAI.V1.Chat.Completions
-import OpenAI.V1.Tool
-import qualified OpenAI.V1.ToolCall as ToolCall
+import           Control.Monad
+import           Data.Aeson                 ((.=))
+import qualified Data.Aeson                 as JSON
+import qualified Data.Aeson.KeyMap          as JSON
+import qualified Data.ByteString.Lazy       as BL
+import           OpenAI.V1
+import           OpenAI.V1.Chat.Completions
+import           OpenAI.V1.Tool
+import qualified OpenAI.V1.ToolCall         as ToolCall
 
-import Data.Text (Text)
-import qualified Data.Text as Text
-import Data.Text.Encoding
-import qualified Data.Text.IO as Text.IO
-import Data.Vector (Vector)
-import qualified Data.Vector as V
-import qualified System.Environment as Environment
-import System.IO
-import System.Process
-import Text.Tools
-import Text.Wrap
+import           Data.Text                  (Text)
+import qualified Data.Text                  as Text
+import           Data.Text.Encoding
+import qualified Data.Text.IO               as Text.IO
+import           Data.Vector                (Vector)
+import qualified Data.Vector                as V
+import qualified System.Environment         as Environment
+import           System.IO
+import           System.Process
+import           Text.Tools
+import           Text.Wrap
 
 type FullMessage = Message (V.Vector Content)
 
@@ -58,20 +58,20 @@ callToString call = do
   let ToolCall.Function{..} = ToolCall.function call
   let args =
         case JSON.eitherDecode $ BL.fromStrict $ encodeUtf8 arguments :: Either String JSON.Value of
-          Left e -> error e
+          Left e  -> error e
           Right v -> v
   let commandValue =
         case args of
           JSON.Object kvs -> JSON.lookup "command" kvs
-          _ -> error "function args wrong format"
+          _               -> error "function args wrong format"
 
   let command =
         case commandValue of
           Just (JSON.String v) -> v
-          _ -> error "command not string"
+          _                    -> error "command not string"
 
   return command
-  
+
 main :: IO ()
 main = do
   key <- Environment.getEnv "OPENAI_KEY"
@@ -79,13 +79,13 @@ main = do
   clientEnv <- getClientEnv "https://api.openai.com"
 
   let Methods{ createChatCompletion } = makeMethods clientEnv (Text.pack key)
-  
+
   foreverM [] $ \history -> do
 
     let outstandingCalls =
           case history of
             [] -> []
-            _ -> concatMap V.toList $ tool_calls $ last history
+            _  -> concatMap V.toList $ tool_calls $ last history
 
     requestMessages <-
       case outstandingCalls of
@@ -98,11 +98,11 @@ main = do
           forM outstandingCalls $ \call -> do
             threadDelay 1000
             command <- callToString call
-              
+
             putStrLn $ "########## " ++ show command
             (_, out, err) <- readCreateProcessWithExitCode (shell $ Text.unpack command) ""
             return Tool{content=[Text $ Text.pack $ err ++ out], tool_call_id=ToolCall.id call}
-          
+
     ChatCompletionObject{ choices } <-
       createChatCompletion _CreateChatCompletion
       { messages = V.fromList $ history ++ requestMessages
@@ -120,7 +120,7 @@ main = do
 
   return ()
 
-  
+
 prune :: FullMessage -> FullMessage
 prune Tool{..} = Tool{content = [Text "[redacted for brevity]"], tool_call_id=tool_call_id}
 prune x = x

@@ -80,13 +80,16 @@ main = do
   clientEnv <- getClientEnv "https://api.openai.com"
 
   let Methods{ createChatCompletion } = makeMethods clientEnv (Text.pack key)
+  let systemMsg = System{ content = V.singleton $ Text "You are Gary!  Gary is our intern who’s surprisingly helpful, weirdly fast.  You use the console often to work on tasks that we ask you to do.  If asked to run a routine command, just use the console and do it.  If asked to run a dangerous command, always ask for confirmation.", name = Nothing }
 
-  foreverM [] $ \history -> do
+  foreverM [systemMsg] $ \history -> do
 
     let outstandingCalls =
           case history of
             [] -> []
-            _  -> concatMap V.toList $ tool_calls $ last history
+            _ -> case last history of
+                   Assistant{..}  -> concatMap V.toList tool_calls
+                   _ -> []
 
     requestMessages <-
       case outstandingCalls of

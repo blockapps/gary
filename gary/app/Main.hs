@@ -28,6 +28,7 @@ import           System.IO
 import           System.Process
 import           Text.Tools
 import           Text.Wrap
+import Text.Colors (green)
 
 type FullMessage = Message (V.Vector Content)
 
@@ -98,8 +99,8 @@ main = do
           forM outstandingCalls $ \call -> do
             threadDelay 1000
             command <- callToString call
-
-            putStrLn $ "########## " ++ show command
+            
+            putStrLn $ green ("########## " ++ show command)
             (_, out, err) <- readCreateProcessWithExitCode (shell $ Text.unpack command) ""
             return Tool{content=[Text $ Text.pack $ err ++ out], tool_call_id=ToolCall.id call}
 

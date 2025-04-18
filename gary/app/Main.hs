@@ -5,30 +5,31 @@
 {-# LANGUAGE RecordWildCards       #-}
 
 module Main (main) where
-import           Control.Concurrent         (threadDelay)
 
+import           Control.Concurrent         (threadDelay)
 import           Control.Monad
 import           Data.Aeson                 ((.=))
 import qualified Data.Aeson                 as JSON
 import qualified Data.Aeson.KeyMap          as JSON
 import qualified Data.ByteString.Lazy       as BL
-import           OpenAI.V1
-import           OpenAI.V1.Chat.Completions
-import           OpenAI.V1.Tool
-import qualified OpenAI.V1.ToolCall         as ToolCall
-
 import           Data.Text                  (Text)
 import qualified Data.Text                  as Text
 import           Data.Text.Encoding
 import qualified Data.Text.IO               as Text.IO
 import           Data.Vector                (Vector)
 import qualified Data.Vector                as V
+import           OpenAI.V1
+import           OpenAI.V1.Chat.Completions
+import           OpenAI.V1.Tool
+import qualified OpenAI.V1.ToolCall         as ToolCall
+import           System.Directory           (getCurrentDirectory)
 import qualified System.Environment         as Environment
+import           System.FilePath            (takeFileName)
 import           System.IO
 import           System.Process
+import           Text.Colors                (green)
 import           Text.Tools
 import           Text.Wrap
-import Text.Colors (green)
 
 type FullMessage = Message (V.Vector Content)
 
@@ -88,13 +89,15 @@ main = do
           case history of
             [] -> []
             _ -> case last history of
-                   Assistant{..}  -> concatMap V.toList tool_calls
-                   _ -> []
+                   Assistant{..} -> concatMap V.toList tool_calls
+                   _             -> []
 
     requestMessages <-
       case outstandingCalls of
         [] -> do
-          putStr "> "
+          cwd <- getCurrentDirectory
+          let folder = takeFileName cwd
+          putStr $ "🛠️  " ++ folder ++ "> "
           hFlush stdout
           text <- Text.IO.getLine
           return [User{ content = [ Text{ text } ], name = Nothing }]
@@ -102,7 +105,7 @@ main = do
           forM outstandingCalls $ \call -> do
             threadDelay 1000
             command <- callToString call
-            
+
             putStrLn $ green ("########## " ++ show command)
             (_, out, err) <- readCreateProcessWithExitCode (shell $ Text.unpack command) ""
             return Tool{content=[Text $ Text.pack $ err ++ out], tool_call_id=ToolCall.id call}

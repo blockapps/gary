@@ -5,6 +5,7 @@
 {-# LANGUAGE RecordWildCards #-}
 
 module Main (main) where
+import Control.Concurrent (threadDelay)
 
 import Control.Monad
 import qualified Data.Aeson as JSON
@@ -20,8 +21,8 @@ import Data.Text (Text)
 import qualified Data.Text as Text
 import Data.Text.Encoding
 import qualified Data.Text.IO as Text.IO
+import Data.Vector (Vector)
 import qualified Data.Vector as V
-import Text.Colors
 import qualified System.Environment as Environment
 import System.IO
 import System.Process
@@ -95,11 +96,12 @@ main = do
           return [User{ content = [ Text{ text } ], name = Nothing }]
         _ -> do
           forM outstandingCalls $ \call -> do
+            threadDelay 1000
             command <- callToString call
               
             putStrLn $ "########## " ++ show command
-            (_, stdout, stderr) <- readCreateProcessWithExitCode (shell $ Text.unpack command) ""
-            return Tool{content=[Text $ Text.pack $ stderr ++ stdout], tool_call_id=ToolCall.id call}
+            (_, out, err) <- readCreateProcessWithExitCode (shell $ Text.unpack command) ""
+            return Tool{content=[Text $ Text.pack $ err ++ out], tool_call_id=ToolCall.id call}
           
     ChatCompletionObject{ choices } <-
       createChatCompletion _CreateChatCompletion
@@ -108,18 +110,32 @@ main = do
       , tools=Just $ V.singleton consoleTool
       }
 
-    let response = message $ V.head choices
+    let response = fillMessage $ message $ V.head choices
 
     putStrLn $ printMessage response
-    
-    return $ history ++ requestMessages ++ [fillMessage $ message $ V.head choices]
+
+    case response of
+      Assistant{assistant_content=Just _} -> return $ map prune $ history ++ requestMessages ++ [response]
+      _ -> return $ history ++ requestMessages ++ [response]
 
   return ()
 
-printMessage :: Message Text -> String
+  
+prune :: FullMessage -> FullMessage
+prune Tool{..} = Tool{content = [Text "[redacted for brevity]"], tool_call_id=tool_call_id}
+prune x = x
+
+printMessage :: FullMessage -> String
 printMessage Assistant{assistant_content=Nothing} = "" -- show theMessage
-printMessage Assistant{assistant_content=Just v} = box $ lines $ "😎 GARY:\n" ++ Text.unpack (wrapText defaultWrapSettings 100 v)
+printMessage Assistant{assistant_content=Just v} = box $ lines $ "😎 GARY:\n" ++ Text.unpack (wrapText defaultWrapSettings 100 $ tprintContent v)
 printMessage v = error $ "unsupported case in call to printMessage: " ++ show v
+
+tprintContent :: Vector Content -> Text
+tprintContent content = Text.concat $ map tshowContentItem $ V.toList content
+
+tshowContentItem :: Content -> Text
+tshowContentItem (Text v) = v
+tshowContentItem v = error $ "unsupported case in tshowContentItem: " ++ show v
 
 fillMessage :: Message Text -> FullMessage
 fillMessage System{..} = System{content=V.singleton $ Text content, name=name}
@@ -131,3 +147,4 @@ fillMessage Assistant{..} = Assistant{
                          tool_calls=tool_calls
                          }
 fillMessage v = error $ "unexpected value in call to fillMessage: " ++ show v
+

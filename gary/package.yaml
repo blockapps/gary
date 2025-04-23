@@ -33,6 +33,7 @@ executables:
     - openai
     - process
     - req
+    - terminal-size
     - text
     - unordered-containers
     - vector

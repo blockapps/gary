@@ -6,28 +6,29 @@
 
 module Main (main) where
 
-import           Control.Concurrent         (threadDelay)
+import           Control.Concurrent           (threadDelay)
 import           Control.Monad
-import           Data.Aeson                 ((.=))
-import qualified Data.Aeson                 as JSON
-import qualified Data.Aeson.KeyMap          as JSON
-import qualified Data.ByteString.Lazy       as BL
-import           Data.Text                  (Text)
-import qualified Data.Text                  as Text
+import           Data.Aeson                   ((.=))
+import qualified Data.Aeson                   as JSON
+import qualified Data.Aeson.KeyMap            as JSON
+import qualified Data.ByteString.Lazy         as BL
+import           Data.Text                    (Text)
+import qualified Data.Text                    as Text
 import           Data.Text.Encoding
-import qualified Data.Text.IO               as Text.IO
-import           Data.Vector                (Vector)
-import qualified Data.Vector                as V
+import qualified Data.Text.IO                 as Text.IO
+import           Data.Vector                  (Vector)
+import qualified Data.Vector                  as V
 import           OpenAI.V1
 import           OpenAI.V1.Chat.Completions
 import           OpenAI.V1.Tool
-import qualified OpenAI.V1.ToolCall         as ToolCall
-import           System.Directory           (getCurrentDirectory)
-import qualified System.Environment         as Environment
-import           System.FilePath            (takeFileName)
+import qualified OpenAI.V1.ToolCall           as ToolCall
+import           System.Console.Terminal.Size
+import           System.Directory             (getCurrentDirectory)
+import qualified System.Environment           as Environment
+import           System.FilePath              (takeFileName)
 import           System.IO
 import           System.Process
-import           Text.Colors                (green)
+import           Text.Colors                  (green)
 import           Text.Tools
 import           Text.Wrap
 
@@ -119,7 +120,9 @@ main = do
 
     let response = fillMessage $ message $ V.head choices
 
-    putStrLn $ printMessage response
+    Just Window{width=windowWidth} <- size
+
+    putStrLn $ printMessage windowWidth response
 
     case response of
       Assistant{assistant_content=Just _} -> return $ map prune $ history ++ requestMessages ++ [response]
@@ -132,10 +135,10 @@ prune :: FullMessage -> FullMessage
 prune Tool{..} = Tool{content = [Text "[redacted for brevity]"], tool_call_id=tool_call_id}
 prune x = x
 
-printMessage :: FullMessage -> String
-printMessage Assistant{assistant_content=Nothing} = "" -- show theMessage
-printMessage Assistant{assistant_content=Just v} = box $ lines $ "😎 GARY:\n" ++ Text.unpack (wrapText defaultWrapSettings 100 $ tprintContent v)
-printMessage v = error $ "unsupported case in call to printMessage: " ++ show v
+printMessage :: Int -> FullMessage -> String
+printMessage _ Assistant{assistant_content=Nothing} = "" -- show theMessage
+printMessage windowWidth Assistant{assistant_content=Just v} = box $ lines $ "😎 GARY:\n" ++ Text.unpack (wrapText defaultWrapSettings (windowWidth-4) $ tprintContent v)
+printMessage _ v = error $ "unsupported case in call to printMessage: " ++ show v
 
 tprintContent :: Vector Content -> Text
 tprintContent content = Text.concat $ map tshowContentItem $ V.toList content

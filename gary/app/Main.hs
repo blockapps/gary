@@ -7,11 +7,15 @@
 module Main (main) where
 
 import           Control.Concurrent           (threadDelay)
+import           Control.Exception
 import           Control.Monad
 import           Data.Aeson                   ((.=))
 import qualified Data.Aeson                   as JSON
 import qualified Data.Aeson.KeyMap            as JSON
+import qualified Data.ByteString.Char8        as BC
 import qualified Data.ByteString.Lazy         as BL
+import qualified Data.ByteString.Lazy.Char8   as BLC
+import           Data.Foldable
 import           Data.Text                    (Text)
 import qualified Data.Text                    as Text
 import           Data.Text.Encoding
@@ -22,13 +26,14 @@ import           OpenAI.V1
 import           OpenAI.V1.Chat.Completions
 import           OpenAI.V1.Tool
 import qualified OpenAI.V1.ToolCall           as ToolCall
+import           Servant.Client.Core
 import           System.Console.Terminal.Size
 import           System.Directory             (getCurrentDirectory)
 import qualified System.Environment           as Environment
 import           System.FilePath              (takeFileName)
 import           System.IO
 import           System.Process
-import           Text.Colors                  (green)
+import           Text.Colors                  (green, red)
 import           Text.Tools
 import           Text.Wrap
 
@@ -112,6 +117,7 @@ main = do
             return Tool{content=[Text $ Text.pack $ err ++ out], tool_call_id=ToolCall.id call}
 
     ChatCompletionObject{ choices } <-
+      tryWithRepeat $
       createChatCompletion _CreateChatCompletion
       { messages = V.fromList $ history ++ requestMessages
       , model = "gpt-4.1"
@@ -130,6 +136,23 @@ main = do
 
   return ()
 
+tryWithRepeat :: IO a -> IO a
+tryWithRepeat f = do
+  result <- try f
+  case result of
+    Right v -> return v
+    Left e ->
+      case e of
+        e' | Just (FailureResponse request response) <- fromException e'-> do
+               case lookup "retry-after-ms" $ toList $ responseHeaders response of
+                     Just pauseTimeString -> do
+                       let pauseTime = read $ BC.unpack pauseTimeString
+                       putStrLn $ red $ "Pausing for " ++ show (pauseTime `div` 1000) ++ " seconds...."
+                       threadDelay $ 1000 * pauseTime
+                       tryWithRepeat f
+                     Nothing ->
+                       error $ "Error FailureResponse!\n" ++ "  -request = " ++ show request ++ "\n  -response = " ++ show response ++ "\n\n  message=\n" ++ BLC.unpack (responseBody response)
+        _ -> error $ show (e :: SomeException)
 
 prune :: FullMessage -> FullMessage
 prune Tool{..} = Tool{content = [Text "[redacted for brevity]"], tool_call_id=tool_call_id}

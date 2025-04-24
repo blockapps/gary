@@ -33,6 +33,7 @@ executables:
     - openai
     - process
     - req
+    - servant-client-core
     - terminal-size
     - text
     - unordered-containers

@@ -9,6 +9,7 @@ module Main (main) where
 import           Control.Concurrent           (threadDelay)
 import           Control.Exception
 import           Control.Monad
+import           Control.Monad.IO.Class
 import           Data.Aeson                   ((.=))
 import qualified Data.Aeson                   as JSON
 import qualified Data.Aeson.KeyMap            as JSON
@@ -19,7 +20,6 @@ import           Data.Foldable
 import           Data.Text                    (Text)
 import qualified Data.Text                    as Text
 import           Data.Text.Encoding
-import qualified Data.Text.IO                 as Text.IO
 import           Data.Vector                  (Vector)
 import qualified Data.Vector                  as V
 import           OpenAI.V1
@@ -27,11 +27,12 @@ import           OpenAI.V1.Chat.Completions
 import           OpenAI.V1.Tool
 import qualified OpenAI.V1.ToolCall           as ToolCall
 import           Servant.Client.Core
+import           System.Console.Haskeline
 import           System.Console.Terminal.Size
 import           System.Directory             (getCurrentDirectory)
 import qualified System.Environment           as Environment
+import           System.Exit
 import           System.FilePath              (takeFileName)
-import           System.IO
 import           System.Process
 import           Text.Colors                  (green, red)
 import           Text.Tools
@@ -89,7 +90,7 @@ main = do
   let Methods{ createChatCompletion } = makeMethods clientEnv (Text.pack key)
   let systemMsg = System{ content = V.singleton $ Text "You are Gary!  Gary is our intern who’s surprisingly helpful, weirdly fast.  You use the console often to work on tasks that we ask you to do.  If asked to run a routine command, just use the console and do it.  If asked to run a dangerous command, always ask for confirmation.", name = Nothing }
 
-  foreverM [systemMsg] $ \history -> do
+  foreverM [systemMsg] $ \history -> runInputT defaultSettings{ historyFile = Just ".gary_history" } $ do
 
     let outstandingCalls =
           case history of
@@ -101,22 +102,24 @@ main = do
     requestMessages <-
       case outstandingCalls of
         [] -> do
-          cwd <- getCurrentDirectory
+          cwd <- liftIO getCurrentDirectory
           let folder = takeFileName cwd
-          putStr $ "🛠️  " ++ folder ++ "> "
-          hFlush stdout
-          text <- Text.IO.getLine
+          text' <- getInputLine $ "🛠️  " ++ folder ++ "> "
+          text <-
+            case text' of
+              Nothing -> liftIO exitSuccess
+              Just v -> return $ Text.pack v
           return [User{ content = [ Text{ text } ], name = Nothing }]
         _ -> do
           forM outstandingCalls $ \call -> do
-            threadDelay 1000
+            liftIO $ threadDelay 1000
             command <- callToString call
 
-            putStrLn $ green ("########## " ++ show command)
-            (_, out, err) <- readCreateProcessWithExitCode (shell $ Text.unpack command) ""
+            liftIO $ putStrLn $ green ("########## " ++ show command)
+            (_, out, err) <- liftIO $ readCreateProcessWithExitCode (shell $ Text.unpack command) ""
             return Tool{content=[Text $ Text.pack $ err ++ out], tool_call_id=ToolCall.id call}
 
-    ChatCompletionObject{ choices } <-
+    ChatCompletionObject{ choices } <- liftIO $
       tryWithRepeat $
       createChatCompletion _CreateChatCompletion
       { messages = V.fromList $ history ++ requestMessages
@@ -126,9 +129,9 @@ main = do
 
     let response = fillMessage $ message $ V.head choices
 
-    Just Window{width=windowWidth} <- size
+    Just Window{width=windowWidth} <- liftIO size
 
-    putStrLn $ printMessage windowWidth response
+    liftIO $ putStrLn $ printMessage windowWidth response
 
     case response of
       Assistant{assistant_content=Just _} -> return $ map prune $ history ++ requestMessages ++ [response]

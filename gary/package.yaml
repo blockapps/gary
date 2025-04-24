@@ -29,6 +29,7 @@ executables:
     - aeson
     - bytestring
     - format
+    - haskeline
     - http-client-tls
     - openai
     - process
